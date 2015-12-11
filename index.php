@@ -22,8 +22,7 @@ class RSSEditor
      * @param $firstArgument mixed
      * @param $secondArgument mixed
      */
-    protected function twoArgumentsAction($action, $firstArgument, $secondArgument)
-    {
+    protected function twoArgumentsAction($action, $firstArgument, $secondArgument) {
         if (is_array($firstArgument)) {
             if (!is_array($secondArgument) || count($firstArgument) !== count($secondArgument)) {
                 die("Old and new arrays of tag names must have equal lengths");
@@ -46,8 +45,7 @@ class RSSEditor
      * @param $action callable
      * @param $argument mixed
      */
-    protected function singleArgumentAction($action, $argument)
-    {
+    protected function singleArgumentAction($action, $argument) {
         if (is_array($argument)) {
             foreach ($argument as $unifiedArgument) {
                 call_user_func($action, $unifiedArgument);
@@ -63,8 +61,7 @@ class RSSEditor
      * @param $oldTagName string Current name of the tags
      * @param $newTagName string New name for the tags
      */
-    protected function renameUnifiedTags($oldTagName, $newTagName)
-    {
+    protected function renameUnifiedTags($oldTagName, $newTagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($oldTagName));
 
         if (count($nodes) == 0) {
@@ -83,8 +80,7 @@ class RSSEditor
      *
      * @param $tagName string|string[] Name of the tag
      */
-    protected function removeUnifiedTags($tagName)
-    {
+    protected function removeUnifiedTags($tagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($tagName));
         if (count($nodes) == 0) {
             die("No tags with name " . $tagName);
@@ -99,8 +95,7 @@ class RSSEditor
      *
      * @param $tagName string Name of the old tag
      */
-    protected function insertBreaksIntoUnifiedTags($tagName)
-    {
+    protected function insertBreaksIntoUnifiedTags($tagName) {
         $nodes = $this->xml->getElementsByTagName($tagName);
         if ($nodes->length == 0) {
             die("No tags with name " . $tagName);
@@ -116,8 +111,7 @@ class RSSEditor
      *
      * @param $tagName string Name of the old tag
      */
-    protected function cdataUnifiedTags($tagName)
-    {
+    protected function cdataUnifiedTags($tagName) {
         $nodes = $this->xml->getElementsByTagName($tagName);
         if ($nodes->length == 0) {
             die("No tags with name " . $tagName);
@@ -184,7 +178,9 @@ class RSSEditor
     }
 
     /**
-     * @param $tagName
+     * Remove tags with given name
+     *
+     * @param $tagName string
      */
     public function removeTags($tagName)
     {
@@ -192,7 +188,9 @@ class RSSEditor
     }
 
     /**
-     * @param $tagName
+     * Insert <br/> instead of line breaks in the content of tags with given name
+     *
+     * @param $tagName string
      */
     public function insertBreaksIntoTags($tagName)
     {
@@ -200,7 +198,9 @@ class RSSEditor
     }
 
     /**
-     * @param $tagName
+     * Wrap content of the tags with given name using CDATA
+     *
+     * @param $tagName string
      */
     public function cdataTags($tagName)
     {
@@ -208,7 +208,16 @@ class RSSEditor
     }
 
     /**
-     * @param $tagName
+     * Split the content of the tags with given name into tags with the same name
+     * that contains lower cased words from source content that is extracted using CamelCase rules
+     *
+     * Example:
+     *   before
+     *     <tag>CamelCaseSTRING</tag>
+     *   after
+     *     <tag>camel<tag></tag>case<tag></tag>string</tag>
+     *
+     * @param $tagName string
      */
     public function splitCamelCase($tagName)
     {
@@ -230,7 +239,9 @@ class RSSEditor
     }
 
     /**
-     * @return string
+     * Get current XML as a plain text
+     *
+     * @return string   current XML as a plain text
      */
     public function getXMLAsText()
     {
