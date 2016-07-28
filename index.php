@@ -2,6 +2,29 @@
 header("Content-type: text/xml; charset=utf-8");
 
 
+function allElementsAreArrays($array) {
+    foreach ($array as $val) {
+        if (!is_array($val)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function change_status_and_die($message) {
+    http_response_code(502);
+    return die($message);
+}
+
+function wrapInArray($arg) {
+    if (!is_array($arg)) {
+        return array($arg);
+    } else {
+        return $arg;
+    }
+}
+
+
 class RSSEditor
 {
     /**
@@ -13,45 +36,48 @@ class RSSEditor
      */
     protected $xml;
 
+
+    /**
+     * Check pair matching of two objects.
+     *
+     * @throws InvalidArgumentException   Only one of two arguments is array or arrays do not have same length
+     *
+     * @param $firstObject mixed
+     * @param $secondObject mixed
+     */
+    protected function checkPairArgumentsMatching($firstObject, $secondObject) {
+        if (is_array($firstObject)) {
+            if (!is_array($secondObject) || count($firstObject) !== count($secondObject)) {
+                throw new InvalidArgumentException("both arrays must have equal lengths");
+            }
+        } else {
+            if (is_array($secondObject)) {
+                throw new InvalidArgumentException("both objects must be arrays or not at the same time");
+            }
+        }
+    }
+
     /**
      * Apply action with passing two arguments.
      * If arguments are arrays with same length then apply action for each pair of these element by index.
      * Otherwise apply only single time with arguments.
      *
      * @param $action callable
-     * @param $firstArgument mixed
-     * @param $secondArgument mixed
+     * @param $arguments mixed   Single argument or array of arguments for $action
      */
-    protected function twoArgumentsAction($action, $firstArgument, $secondArgument) {
-        if (is_array($firstArgument)) {
-            if (!is_array($secondArgument) || count($firstArgument) !== count($secondArgument)) {
-                die("Old and new arrays of tag names must have equal lengths");
-            }
-            foreach (array_combine($firstArgument, $secondArgument)
-                     as $oldUnifiedArgument => $newUnifiedArgument) {
-                call_user_func($action, $oldUnifiedArgument, $newUnifiedArgument);
+    protected function applyAction($action, $arguments) {
+        if (is_array($arguments)) {
+            if (allElementsAreArrays($arguments)) {
+                foreach ($arguments as $args) {
+                    call_user_func_array($action, $args);
+                }
+            } else {
+                foreach ($arguments as $arg) {
+                    call_user_func($action, $arg);
+                }
             }
         } else {
-            call_user_func($action, $firstArgument, $secondArgument);
-        }
-    }
-
-
-    /**
-     * Apply action with passing single argument.
-     * If argument is array then apply action for each element.
-     * Otherwise apply action once with argument.
-     *
-     * @param $action callable
-     * @param $argument mixed
-     */
-    protected function singleArgumentAction($action, $argument) {
-        if (is_array($argument)) {
-            foreach ($argument as $unifiedArgument) {
-                call_user_func($action, $unifiedArgument);
-            }
-        } else {
-            call_user_func($action, $argument);
+            call_user_func($action, $arguments);
         }
     }
 
@@ -65,7 +91,7 @@ class RSSEditor
         $nodes = iterator_to_array($this->xml->getElementsByTagName($oldTagName));
 
         if (count($nodes) == 0) {
-            die("No tags with name " . $oldTagName);
+            change_status_and_die("No tags with name " . $oldTagName);
         };
         foreach ($nodes as $node) {
             $newNode = $this->xml->createElement($newTagName);
@@ -83,7 +109,7 @@ class RSSEditor
     protected function removeUnifiedTags($tagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($tagName));
         if (count($nodes) == 0) {
-            die("No tags with name " . $tagName);
+            change_status_and_die("No tags with name " . $tagName);
         };
         foreach ($nodes as $node) {
             $node->parentNode->removeChild($node);
@@ -98,7 +124,7 @@ class RSSEditor
     protected function insertBreaksIntoUnifiedTags($tagName) {
         $nodes = $this->xml->getElementsByTagName($tagName);
         if ($nodes->length == 0) {
-            die("No tags with name " . $tagName);
+            change_status_and_die("No tags with name " . $tagName);
         }
         foreach ($nodes as $node) {
             $node->nodeValue = htmlspecialchars(preg_replace('/[\r\n]+/u', '<br/>', $node->nodeValue));
@@ -114,7 +140,7 @@ class RSSEditor
     protected function cdataUnifiedTags($tagName) {
         $nodes = $this->xml->getElementsByTagName($tagName);
         if ($nodes->length == 0) {
-            die("No tags with name " . $tagName);
+            change_status_and_die("No tags with name " . $tagName);
         }
         foreach ($nodes as $node) {
             $CDATASection = $this->xml->createCDATASection($node->nodeValue);
@@ -134,7 +160,7 @@ class RSSEditor
                                 $htmlEntitiesToNumeric, $addNamespace) {
         $this->plainText = file_get_contents($url, false, $context);
         if (!$this->plainText) {
-            die("Cannot load RSS feed " . $url);
+            change_status_and_die("Cannot load RSS feed " . $url);
         }
         if ($replaceAmpToSymbol) {
             $this->plainText = preg_replace('/&amp;(?=[a-z]{2})/', "&", $this->plainText);
@@ -150,8 +176,7 @@ class RSSEditor
 
         $this->xml = new DOMDocument();
         if (!$this->xml->loadXML($this->plainText)) {
-            http_response_code(502);
-            die("Cannot get valid XML");
+            change_status_and_die("Cannot get valid XML");
         }
 
     }
@@ -174,7 +199,17 @@ class RSSEditor
      * @param $newTagName string|string[] New name for the tags
      */
     public function renameTags($oldTagName, $newTagName) {
-        $this->twoArgumentsAction(array($this, 'renameUnifiedTags'), $oldTagName, $newTagName);
+        $oldTagName = wrapInArray($oldTagName);
+        $newTagName = wrapInArray($newTagName);
+        try {
+            $this->checkPairArgumentsMatching($oldTagName, $newTagName);
+        } catch (InvalidArgumentException $e) {
+            change_status_and_die("Invalid rename_from/rename_to parameters: " . $e->getMessage());
+        }
+        $this->applyAction(array($this, 'renameUnifiedTags'),
+            array_map(function($ind) use ($oldTagName, $newTagName)
+                {return array($oldTagName[$ind], $newTagName[$ind]);},
+                range(0, count($oldTagName)-1)));
     }
 
     /**
@@ -183,7 +218,7 @@ class RSSEditor
      * @param $tagName string
      */
     public function removeTags($tagName) {
-        $this->singleArgumentAction(array($this, 'removeUnifiedTags'), $tagName);
+        $this->applyAction(array($this, 'removeUnifiedTags'), $tagName);
     }
 
     /**
@@ -193,7 +228,7 @@ class RSSEditor
      */
     public function insertBreaksIntoTags($tagName)
     {
-        $this->singleArgumentAction(array($this, 'insertBreaksIntoUnifiedTags'), $tagName);
+        $this->applyAction(array($this, 'insertBreaksIntoUnifiedTags'), $tagName);
     }
 
     /**
@@ -203,7 +238,7 @@ class RSSEditor
      */
     public function cdataTags($tagName)
     {
-        $this->singleArgumentAction(array($this, 'cdataUnifiedTags'), $tagName);
+        $this->applyAction(array($this, 'cdataUnifiedTags'), $tagName);
     }
 
     /**
@@ -221,7 +256,7 @@ class RSSEditor
     public function splitCamelCase($tagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($tagName));
         if (count($nodes) == 0) {
-            die("No tags with name " . $tagName);
+            change_status_and_die("No tags with name " . $tagName);
         }
         foreach ($nodes as $node) {
             $matches = array();
@@ -257,15 +292,16 @@ $opts = array(
 $context = stream_context_create($opts);
 libxml_set_streams_context($context);
 
-$url = isset($_GET['url']) ? $_GET['url'] : die("No url of RSS for processing");
+$url = isset($_GET['url']) ? $_GET['url'] : change_status_and_die("No url of RSS for processing");
 if (!(isset($_GET['amp']) ||
-    isset($_GET['rename_from']) && isset($_GET['rename_to']) ||
-    isset($_GET['remove']) ||
-    isset($_GET['break']) ||
-    isset($_GET['split']) ||
-    isset($_GET['cdata']))
+      isset($_GET['remove']) ||
+      isset($_GET['break']) ||
+      isset($_GET['split']) ||
+      isset($_GET['cdata'])) ||
+    isset($_GET['rename_from']) && !isset($_GET['rename_to']) ||
+    !isset($_GET['rename_from']) && isset($_GET['rename_to'])
 ) {
-    die("Incomplete parameters (must be rename_from and rename_to or remove or break or cdata)");
+    change_status_and_die("Incomplete parameters (must be rename_from and rename_to or remove or break or cdata or replace_from and replace_to and replace_in");
 }
 
 $feed = new RSSEditor($url, $context, isset($_GET['amp']), true, @$_GET['add_namespace']);
