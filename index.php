@@ -168,12 +168,7 @@ class RSSEditor
 
         foreach ($nodes as $node) {
             if ($node->childNodes->length <= 2) {
-//                $childNode = $node->childNodes->item(0);
                 foreach($node->childNodes as $childNode) {
-
-                    echo 'node type : ' . $childNode->nodeType . PHP_EOL;
-                    echo '     value: ' . $childNode->nodeValue . PHP_EOL;
-                    echo '     sens: ' . var_export($isCaseSensitive) . PHP_EOL;
                     if ($childNode->nodeType === XML_TEXT_NODE || $childNode->nodeType === XML_CDATA_SECTION_NODE) {
                         $childNode->nodeValue = preg_replace($isCaseSensitive ? "/$replaceFrom/u" : "/$replaceFrom/iu",
                             $replaceTo, $childNode->nodeValue);
@@ -198,9 +193,11 @@ class RSSEditor
         }
         if ($replaceAmpToSymbol) {
             $this->plainText = preg_replace('/&amp;(?=[a-z]{2})/', "&", $this->plainText);
-        } else {
-            $this->plainText = str_replace("&", "&#38;", $this->plainText);
         }
+
+        // replace  & into code if it is not encoded symbol
+        $this->plainText = preg_replace("/&(?![a-z]+;)/", "&#38;", $this->plainText);
+
         if ($htmlEntitiesToNumeric) {
             $this->htmlEntitiesToNumeric();
         }
@@ -373,11 +370,11 @@ if (!(isset($_GET['amp']) ||
       isset($_GET['remove']) ||
       isset($_GET['break']) ||
       isset($_GET['split']) ||
-      isset($_GET['cdata'])) ||
-    isset($_GET['rename_from']) && !isset($_GET['rename_to']) ||
-    !isset($_GET['rename_from']) && isset($_GET['rename_to']) ||
+      isset($_GET['cdata'])) &&
+    ((isset($_GET['rename_from']) || isset($_GET['rename_to'])) &&
+      (!isset($_GET['rename_from']) || !isset($_GET['rename_to'])) ||
     (isset($_GET['replace_from']) || isset($_GET['replace_to']) || isset($_GET['replace_in'])) &&
-        (!isset($_GET['replace_from']) || !isset($_GET['replace_to']) || !isset($_GET['replace_in']))
+      (!isset($_GET['replace_from']) || !isset($_GET['replace_to']) || !isset($_GET['replace_in'])))
 ) {
     change_status_and_die("Incomplete parameters (must be rename_from and rename_to or remove or break or cdata or replace_from and replace_to and replace_in");
 }
