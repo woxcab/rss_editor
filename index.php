@@ -149,6 +149,40 @@ class RSSEditor
         }
     }
 
+
+    /**
+     * Replace each match of given regular expression using given replace rule (regular expression in PCRE notation).
+     * Modifier 'u' is used for documents processing with UTF-8 encoding.
+     * 
+     * @param $replaceFrom string    Regex to find matches.
+     * @param $replaceTo string    Regex to replace found matches.
+     * @param $tagName string    Node name which regex is applied in.
+     * @param $isCaseSensitive string    If false then modifier 'i' is applied (searching without case sensitive) else case sensitive searching.
+     */
+    protected function replaceContentInSameNameTags($replaceFrom, $replaceTo, $tagName, $isCaseSensitive) {
+        $nodes = $this->xml->getElementsByTagName($tagName);
+        if ($nodes->length == 0) {
+            change_status_and_die("No tags with name " . $tagName);
+        }
+        $replaceFrom = str_replace('/', '\/', $replaceFrom);
+
+        foreach ($nodes as $node) {
+            if ($node->childNodes->length <= 2) {
+//                $childNode = $node->childNodes->item(0);
+                foreach($node->childNodes as $childNode) {
+
+                    echo 'node type : ' . $childNode->nodeType . PHP_EOL;
+                    echo '     value: ' . $childNode->nodeValue . PHP_EOL;
+                    echo '     sens: ' . var_export($isCaseSensitive) . PHP_EOL;
+                    if ($childNode->nodeType === XML_TEXT_NODE || $childNode->nodeType === XML_CDATA_SECTION_NODE) {
+                        $childNode->nodeValue = preg_replace($isCaseSensitive ? "/$replaceFrom/u" : "/$replaceFrom/iu",
+                            $replaceTo, $childNode->nodeValue);
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * @param $url string
      * @param $context resource Stream context
@@ -272,6 +306,48 @@ class RSSEditor
     }
 
     /**
+     * Content replacing based on regular expressions in PCRE notation.
+     * Replace each match of given regular expression using given replace rule.
+     * For documents with UTF-8 encoding.
+     *
+     * @param $replaceFrom string|string[]    Regex to find matches.
+     * @param $replaceTo string|string[]    Regex to replace found matches.
+     * @param $replaceInTag string|string[]    Node name which regex is applied in.
+     * @param $isCaseSensitive string|string[]    If false then modifier 'i' is applied (searching without case sensitive) else case sensitive searching.
+     */
+    public function replaceContent($replaceFrom, $replaceTo, $replaceInTag, $isCaseSensitive) {
+        $replaceFrom = wrapInArray($replaceFrom);
+        $replaceTo = wrapInArray($replaceTo);
+        try {
+            $this->checkPairArgumentsMatching($replaceFrom, $replaceTo);
+        } catch (InvalidArgumentException $e) {
+            change_status_and_die("Invalid replace_from/replace_to parameters: " . $e->getMessage());
+        }
+        if (is_array($replaceInTag)) {
+            try {
+                $this->checkPairArgumentsMatching($replaceFrom, $replaceInTag);
+            } catch (InvalidArgumentException $e) {
+                change_status_and_die("Invalid replace_from/replace_to/replace_in parameters: " . $e->getMessage());
+            }
+        } else {
+            $replaceInTag = array_fill(0, count($replaceFrom), $replaceInTag);
+        }
+        if (is_array($isCaseSensitive)) {
+            try {
+                $this->checkPairArgumentsMatching($replaceFrom, $isCaseSensitive);
+            } catch (InvalidArgumentException $e) {
+                change_status_and_die("Invalid replace_from/replace_to/replace_sens parameters: " . $e->getMessage());
+            }
+        } else {
+            $isCaseSensitive = array_fill(0, count($replaceFrom), $isCaseSensitive);
+        }
+        $this->applyAction(array($this, 'replaceContentInSameNameTags'),
+            array_map(function($ind) use ($replaceFrom, $replaceTo, $replaceInTag, $isCaseSensitive)
+            { return array($replaceFrom[$ind], $replaceTo[$ind], $replaceInTag[$ind], $isCaseSensitive[$ind]);},
+                range(0, count($replaceFrom)-1)));
+    }
+
+    /**
      * Get current XML as a plain text
      *
      * @return string   current XML as a plain text
@@ -299,7 +375,9 @@ if (!(isset($_GET['amp']) ||
       isset($_GET['split']) ||
       isset($_GET['cdata'])) ||
     isset($_GET['rename_from']) && !isset($_GET['rename_to']) ||
-    !isset($_GET['rename_from']) && isset($_GET['rename_to'])
+    !isset($_GET['rename_from']) && isset($_GET['rename_to']) ||
+    (isset($_GET['replace_from']) || isset($_GET['replace_to']) || isset($_GET['replace_in'])) &&
+        (!isset($_GET['replace_from']) || !isset($_GET['replace_to']) || !isset($_GET['replace_in']))
 ) {
     change_status_and_die("Incomplete parameters (must be rename_from and rename_to or remove or break or cdata or replace_from and replace_to and replace_in");
 }
@@ -324,6 +402,12 @@ if (isset($_GET['break'])) {
 
 if (isset($_GET['cdata'])) {
     $feed->cdataTags($_GET['cdata']);
+}
+
+
+if (isset($_GET['replace_from']) && isset($_GET['replace_to']) && isset($_GET['replace_in'])) {
+    $isCaseSensitive = isset($_GET['replace_sens']) ? true : false;
+    $feed->replaceContent($_GET['replace_from'], $_GET['replace_to'], $_GET['replace_in'], $isCaseSensitive);
 }
 
 echo $feed->getXMLAsText();
