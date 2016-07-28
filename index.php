@@ -196,7 +196,7 @@ class RSSEditor
         }
 
         // replace  & into code if it is not encoded symbol
-        $this->plainText = preg_replace("/&(?![a-z]+;)/", "&#38;", $this->plainText);
+        $this->plainText = preg_replace("/&(?!([a-z]+|#[0-9]+);)/", "&#38;", $this->plainText);
 
         if ($htmlEntitiesToNumeric) {
             $this->htmlEntitiesToNumeric();
@@ -403,8 +403,8 @@ if (isset($_GET['cdata'])) {
 
 
 if (isset($_GET['replace_from']) && isset($_GET['replace_to']) && isset($_GET['replace_in'])) {
-    $isCaseSensitive = isset($_GET['replace_sens']) ? true : false;
-    $feed->replaceContent($_GET['replace_from'], $_GET['replace_to'], $_GET['replace_in'], $isCaseSensitive);
+    $feed->replaceContent($_GET['replace_from'], $_GET['replace_to'],
+        $_GET['replace_in'], isset($_GET['replace_sens']));
 }
 
 echo $feed->getXMLAsText();
