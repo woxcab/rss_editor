@@ -24,6 +24,16 @@ function wrapInArray($arg) {
     }
 }
 
+function map($traversable, $fn)
+{
+    $result = array();
+    foreach ($traversable as $element) {
+        $result[] = $fn($element);
+    }
+
+    return $result;
+}
+
 
 class RSSEditor
 {
@@ -345,6 +355,33 @@ class RSSEditor
     }
 
     /**
+     * Add categories to each feed item from its web-page ('link' element) using XPath expression
+     * that extract list of category names from web-page.
+     * If feed item does not have link then this item is ignored.
+     *
+     * @param $xpath string   XPath expression that extracts category names
+     */
+    public function addCategory($xpath) {
+        foreach ($this->xml->getElementsByTagName("item") as $feed_item) {
+            $entry_link = $feed_item->getElementsByTagName("link");
+            if ($entry_link->length == 0) {
+                continue;
+            }
+            $entry_link = $entry_link[0]->nodeValue;
+            $entry_categories = map($feed_item->getElementsByTagName("category"),
+                function($cat) {return $cat->nodeValue;});
+            $entry_page = new DOMDocument();
+            @$entry_page->loadHTMLFile($entry_link);
+            foreach ((new DOMXPath($entry_page))->query($xpath) as $category) {
+                $category_name = $category->C14N();
+                if (!in_array($category_name, $entry_categories)) {
+                    $feed_item->appendChild(new DOMElement("category", $category_name));
+                }
+            }
+        }
+    }
+
+    /**
      * Get current XML as a plain text
      *
      * @return string   current XML as a plain text
@@ -370,13 +407,14 @@ if (!(isset($_GET['amp']) ||
       isset($_GET['remove']) ||
       isset($_GET['break']) ||
       isset($_GET['split']) ||
-      isset($_GET['cdata'])) &&
+      isset($_GET['cdata']) ||
+      isset($_GET['add_category'])) &&
     ((isset($_GET['rename_from']) || isset($_GET['rename_to'])) &&
         (!isset($_GET['rename_from']) || !isset($_GET['rename_to'])) ||
      (isset($_GET['replace_from']) || isset($_GET['replace_to']) || isset($_GET['replace_in'])) &&
         (!isset($_GET['replace_from']) || !isset($_GET['replace_to']) || !isset($_GET['replace_in'])))
 ) {
-    change_status_and_die("Incomplete parameters (must be rename_from and rename_to OR remove OR break OR cdata OR replace_from and replace_to and replace_in");
+    change_status_and_die("Incomplete parameters (must be rename_from and rename_to OR remove OR break OR cdata OR replace_from and replace_to and replace_in OR addCategory");
 }
 
 $feed = new RSSEditor($url, $context, isset($_GET['amp']), true, @$_GET['add_namespace']);
@@ -405,6 +443,10 @@ if (isset($_GET['cdata'])) {
 if (isset($_GET['replace_from']) && isset($_GET['replace_to']) && isset($_GET['replace_in'])) {
     $feed->replaceContent($_GET['replace_from'], $_GET['replace_to'],
         $_GET['replace_in'], isset($_GET['replace_sens']));
+}
+
+if (isset($_GET['add_category'])) {
+    $feed->addCategory($_GET['add_category']);
 }
 
 echo $feed->getXMLAsText();
