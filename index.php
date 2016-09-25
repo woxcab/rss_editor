@@ -159,7 +159,7 @@ class RSSEditor
      * @param $tagName string    Node name which regex is applied in.
      * @param $isCaseSensitive string    If false then modifier 'i' is applied (searching without case sensitive) else case sensitive searching.
      */
-    protected function replaceContentInSameNameTags($replaceFrom, $replaceTo, $tagName, $isCaseSensitive) {
+    protected function replaceContentInHomonymousTags($replaceFrom, $replaceTo, $tagName, $isCaseSensitive) {
         $nodes = $this->xml->getElementsByTagName($tagName);
         if ($nodes->length == 0) {
             change_status_and_die("No tags with name " . $tagName);
@@ -338,7 +338,7 @@ class RSSEditor
         } else {
             $isCaseSensitive = array_fill(0, count($replaceFrom), $isCaseSensitive);
         }
-        $this->applyAction(array($this, 'replaceContentInSameNameTags'),
+        $this->applyAction(array($this, 'replaceContentInHomonymousTags'),
             array_map(function($ind) use ($replaceFrom, $replaceTo, $replaceInTag, $isCaseSensitive)
             { return array($replaceFrom[$ind], $replaceTo[$ind], $replaceInTag[$ind], $isCaseSensitive[$ind]);},
                 range(0, count($replaceFrom)-1)));
@@ -372,11 +372,11 @@ if (!(isset($_GET['amp']) ||
       isset($_GET['split']) ||
       isset($_GET['cdata'])) &&
     ((isset($_GET['rename_from']) || isset($_GET['rename_to'])) &&
-      (!isset($_GET['rename_from']) || !isset($_GET['rename_to'])) ||
-    (isset($_GET['replace_from']) || isset($_GET['replace_to']) || isset($_GET['replace_in'])) &&
-      (!isset($_GET['replace_from']) || !isset($_GET['replace_to']) || !isset($_GET['replace_in'])))
+        (!isset($_GET['rename_from']) || !isset($_GET['rename_to'])) ||
+     (isset($_GET['replace_from']) || isset($_GET['replace_to']) || isset($_GET['replace_in'])) &&
+        (!isset($_GET['replace_from']) || !isset($_GET['replace_to']) || !isset($_GET['replace_in'])))
 ) {
-    change_status_and_die("Incomplete parameters (must be rename_from and rename_to or remove or break or cdata or replace_from and replace_to and replace_in");
+    change_status_and_die("Incomplete parameters (must be rename_from and rename_to OR remove OR break OR cdata OR replace_from and replace_to and replace_in");
 }
 
 $feed = new RSSEditor($url, $context, isset($_GET['amp']), true, @$_GET['add_namespace']);
