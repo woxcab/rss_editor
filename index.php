@@ -373,7 +373,7 @@ class RSSEditor
             $entry_page = new DOMDocument();
             @$entry_page->loadHTMLFile($entry_link);
             foreach ((new DOMXPath($entry_page))->query($xpath) as $category) {
-                $category_name = $category->C14N();
+                $category_name = trim($category->C14N(), " \t\n\r\0\x0B,;.");
                 if (!in_array($category_name, $entry_categories)) {
                     $feed_item->appendChild(new DOMElement("category", $category_name));
                 }
