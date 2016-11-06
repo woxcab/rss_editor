@@ -1,5 +1,4 @@
 <?php
-header("Content-type: text/xml; charset=utf-8");
 
 
 function allElementsAreArrays($array) {
@@ -220,6 +219,7 @@ class RSSEditor
             change_status_and_die("Cannot get valid XML");
         }
 
+        header("Content-type: text/xml; charset={$this->xml->encoding}");
     }
 
     /**
