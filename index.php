@@ -10,11 +10,6 @@ function allElementsAreArrays($array) {
     return true;
 }
 
-function change_status_and_die($message) {
-    http_response_code(502);
-    return die($message);
-}
-
 function wrapInArray($arg) {
     if (!is_array($arg)) {
         return array($arg);
@@ -95,12 +90,13 @@ class RSSEditor
      *
      * @param $oldTagName string Current name of the tags
      * @param $newTagName string New name for the tags
+     * @throws Exception   if no tags with $oldTagName is found
      */
     protected function renameUnifiedTags($oldTagName, $newTagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($oldTagName));
 
         if (count($nodes) == 0) {
-            change_status_and_die("No tags with name " . $oldTagName);
+            throw new Exception("No tags with name '{$oldTagName}'", 400);
         };
         foreach ($nodes as $node) {
             $newNode = $this->xml->createElement($newTagName);
@@ -114,11 +110,12 @@ class RSSEditor
      * Remove all tags with given name (without children)
      *
      * @param $tagName string|string[] Name of the tag
+     * @throws Exception   if no tags with name $tagName is found
      */
     protected function removeUnifiedTags($tagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($tagName));
         if (count($nodes) == 0) {
-            change_status_and_die("No tags with name " . $tagName);
+            throw new Exception("No tags with name '{$tagName}'", 400);
         };
         foreach ($nodes as $node) {
             $node->parentNode->removeChild($node);
@@ -129,11 +126,12 @@ class RSSEditor
      * Split content of the tags with given name using <br> CDATA block (without attributes)
      *
      * @param $tagName string Name of the old tag
+     * @throws Exception   if no tags with name $tagName is found
      */
     protected function insertBreaksIntoUnifiedTags($tagName) {
         $nodes = $this->xml->getElementsByTagName($tagName);
         if ($nodes->length == 0) {
-            change_status_and_die("No tags with name " . $tagName);
+            throw new Exception("No tags with name '{$tagName}'", 400);
         }
         foreach ($nodes as $node) {
             $node->nodeValue = htmlspecialchars(preg_replace('/[\r\n]+/u', '<br/>', $node->nodeValue));
@@ -145,11 +143,12 @@ class RSSEditor
      * Mark content of the tags with given name as CDATA block (without attributes)
      *
      * @param $tagName string Name of the old tag
+     * @throws Exception   if no tags with name $tagName is found
      */
     protected function cdataUnifiedTags($tagName) {
         $nodes = $this->xml->getElementsByTagName($tagName);
         if ($nodes->length == 0) {
-            change_status_and_die("No tags with name " . $tagName);
+            throw new Exception("No tags with name '{$tagName}'", 400);
         }
         foreach ($nodes as $node) {
             $CDATASection = $this->xml->createCDATASection($node->nodeValue);
@@ -167,11 +166,12 @@ class RSSEditor
      * @param $replaceTo string    Regex to replace found matches.
      * @param $tagName string    Node name which regex is applied in.
      * @param $isCaseSensitive string    If false then modifier 'i' is applied (searching without case sensitive) else case sensitive searching.
+     * @throws Exception   if no tags with name $tagName is found
      */
     protected function replaceContentInHomonymousTags($replaceFrom, $replaceTo, $tagName, $isCaseSensitive) {
         $nodes = $this->xml->getElementsByTagName($tagName);
         if ($nodes->length == 0) {
-            change_status_and_die("No tags with name " . $tagName);
+            throw new Exception("No tags with name '{$tagName}'", 400);
         }
         $replaceFrom = str_replace('/', '\/', $replaceFrom);
 
@@ -193,12 +193,13 @@ class RSSEditor
      * @param $replaceAmpToSymbol boolean replace each '&amp;' to '&' symbol
      * @param $htmlEntitiesToNumeric boolean replace all HTML entities to its numeric representation
      * @param $addNamespace string  add additional RSS-namespace(s)
+     * @throws Exception   if cannot download RSS feed or cannot generate valid XML from RSS feed
      */
     public function __construct($url, $context, $replaceAmpToSymbol,
                                 $htmlEntitiesToNumeric, $addNamespace) {
         $this->plainText = file_get_contents($url, false, $context);
         if (!$this->plainText) {
-            change_status_and_die("Cannot load RSS feed " . $url);
+            throw new Exception("Cannot download RSS feed from URL '{$url}'", 500);
         }
         if ($replaceAmpToSymbol) {
             $this->plainText = preg_replace('/&amp;(?=[a-z]{2})/', "&", $this->plainText);
@@ -216,7 +217,7 @@ class RSSEditor
 
         $this->xml = new DOMDocument();
         if (!$this->xml->loadXML($this->plainText)) {
-            change_status_and_die("Cannot get valid XML");
+            throw new Exception("Cannot form valid XML", 500);
         }
 
         header("Content-type: text/xml; charset={$this->xml->encoding}");
@@ -238,6 +239,7 @@ class RSSEditor
      *
      * @param $oldTagName string|string[] Current name of the tags
      * @param $newTagName string|string[] New name for the tags
+     * @throws Exception   if pair(s) of $oldTagName and $newTagName does not match
      */
     public function renameTags($oldTagName, $newTagName) {
         $oldTagName = wrapInArray($oldTagName);
@@ -245,7 +247,7 @@ class RSSEditor
         try {
             $this->checkPairArgumentsMatching($oldTagName, $newTagName);
         } catch (InvalidArgumentException $e) {
-            change_status_and_die("Invalid rename_from/rename_to parameters: " . $e->getMessage());
+            throw new Exception("Invalid rename_from/rename_to parameters: " . $e->getMessage(), 400);
         }
         $this->applyAction(array($this, 'renameUnifiedTags'),
             array_map(function($ind) use ($oldTagName, $newTagName)
@@ -293,11 +295,12 @@ class RSSEditor
      *     <tag>camel</tag><tag>case</tag><tag>string</tag>
      *
      * @param $tagName string
+     * @throws Exception   if no tags with name $tagName is found
      */
     public function splitCamelCase($tagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($tagName));
         if (count($nodes) == 0) {
-            change_status_and_die("No tags with name " . $tagName);
+            throw new Exception("No tags with name {$tagName}", 400);
         }
         foreach ($nodes as $node) {
             $matches = array();
@@ -321,6 +324,7 @@ class RSSEditor
      * @param $replaceTo string|string[]    Regex to replace found matches.
      * @param $replaceInTag string|string[]    Node name which regex is applied in.
      * @param $isCaseSensitive string|string[]    If false then modifier 'i' is applied (searching without case sensitive) else case sensitive searching.
+     * @throws Exception   if pair(s) of $oldTagName and $newTagName does not match
      */
     public function replaceContent($replaceFrom, $replaceTo, $replaceInTag, $isCaseSensitive) {
         $replaceFrom = wrapInArray($replaceFrom);
@@ -328,13 +332,13 @@ class RSSEditor
         try {
             $this->checkPairArgumentsMatching($replaceFrom, $replaceTo);
         } catch (InvalidArgumentException $e) {
-            change_status_and_die("Invalid replace_from/replace_to parameters: " . $e->getMessage());
+            throw new Exception("Invalid replace_from/replace_to parameters: " . $e->getMessage(), 400);
         }
         if (is_array($replaceInTag)) {
             try {
                 $this->checkPairArgumentsMatching($replaceFrom, $replaceInTag);
             } catch (InvalidArgumentException $e) {
-                change_status_and_die("Invalid replace_from/replace_to/replace_in parameters: " . $e->getMessage());
+                throw new Exception("Invalid replace_from/replace_to/replace_in parameters: " . $e->getMessage(), 400);
             }
         } else {
             $replaceInTag = array_fill(0, count($replaceFrom), $replaceInTag);
@@ -343,7 +347,7 @@ class RSSEditor
             try {
                 $this->checkPairArgumentsMatching($replaceFrom, $isCaseSensitive);
             } catch (InvalidArgumentException $e) {
-                change_status_and_die("Invalid replace_from/replace_to/replace_sens parameters: " . $e->getMessage());
+                throw new Exception("Invalid replace_from/replace_to/replace_sens parameters: " . $e->getMessage(), 400);
             }
         } else {
             $isCaseSensitive = array_fill(0, count($replaceFrom), $isCaseSensitive);
@@ -359,7 +363,8 @@ class RSSEditor
      * that extract list of category names from web-page.
      * If feed item does not have link then this item is ignored.
      *
-     * @param $xpath string   XPath expression that extracts category names
+     * @param $xpath string   XPath 1.0 expression that extracts category names
+     * @throws Exception   if invalid XPath 1.0 expression is passed
      */
     public function addCategory($xpath) {
         foreach ($this->xml->getElementsByTagName("item") as $feed_item) {
@@ -372,7 +377,11 @@ class RSSEditor
                 function($cat) {return $cat->nodeValue;});
             $entry_page = new DOMDocument();
             @$entry_page->loadHTMLFile($entry_link);
-            foreach ((new DOMXPath($entry_page))->query($xpath) as $category) {
+            $categories = @(new DOMXPath($entry_page))->query($xpath);
+            if ($categories === false) {
+                throw new Exception("Invalid XPath expression: " . error_get_last()['message']);
+            }
+            foreach ($categories as $category) {
                 $category_name = trim($category->C14N(), " \t\n\r\0\x0B,;.");
                 if (!in_array($category_name, $entry_categories)) {
                     $feed_item->appendChild(new DOMElement("category", $category_name));
@@ -393,60 +402,67 @@ class RSSEditor
 
 }
 
+try {
+    $opts = array(
+        'http' => array(
+            'user_agent' => 'Mozilla/5.0 (Windows NT 6.1; rv:21.0) Gecko/20130401 Firefox/21.0',
+        )
+    );
+    $context = stream_context_create($opts);
+    libxml_set_streams_context($context);
 
-$opts = array(
-    'http' => array(
-        'user_agent' => 'Mozilla/5.0 (Windows NT 6.1; rv:21.0) Gecko/20130401 Firefox/21.0',
-    )
-);
-$context = stream_context_create($opts);
-libxml_set_streams_context($context);
+    if (!isset($_GET['url'])) {
+        throw new Exception("No url of RSS for processing", 400);
+    }
+    $url = $_GET['url'];
+    if (!(isset($_GET['amp']) ||
+            isset($_GET['remove']) ||
+            isset($_GET['break']) ||
+            isset($_GET['split']) ||
+            isset($_GET['cdata']) ||
+            isset($_GET['add_category'])) &&
+        ((isset($_GET['rename_from']) || isset($_GET['rename_to'])) &&
+            (!isset($_GET['rename_from']) || !isset($_GET['rename_to'])) ||
+            (isset($_GET['replace_from']) || isset($_GET['replace_to']) || isset($_GET['replace_in'])) &&
+            (!isset($_GET['replace_from']) || !isset($_GET['replace_to']) || !isset($_GET['replace_in'])))
+    ) {
+        throw new Exception("Incomplete parameters (must be rename_from and rename_to OR remove OR break OR cdata OR replace_from and replace_to and replace_in OR addCategory");
+    }
 
-$url = isset($_GET['url']) ? $_GET['url'] : change_status_and_die("No url of RSS for processing");
-if (!(isset($_GET['amp']) ||
-      isset($_GET['remove']) ||
-      isset($_GET['break']) ||
-      isset($_GET['split']) ||
-      isset($_GET['cdata']) ||
-      isset($_GET['add_category'])) &&
-    ((isset($_GET['rename_from']) || isset($_GET['rename_to'])) &&
-        (!isset($_GET['rename_from']) || !isset($_GET['rename_to'])) ||
-     (isset($_GET['replace_from']) || isset($_GET['replace_to']) || isset($_GET['replace_in'])) &&
-        (!isset($_GET['replace_from']) || !isset($_GET['replace_to']) || !isset($_GET['replace_in'])))
-) {
-    change_status_and_die("Incomplete parameters (must be rename_from and rename_to OR remove OR break OR cdata OR replace_from and replace_to and replace_in OR addCategory");
+    $feed = new RSSEditor($url, $context, isset($_GET['amp']), true, @$_GET['add_namespace']);
+
+    if (isset($_GET['remove'])) {
+        $feed->removeTags($_GET['remove']);
+    }
+
+    if (isset($_GET['rename_from']) && isset($_GET['rename_to'])) {
+        $feed->renameTags($_GET['rename_from'], $_GET['rename_to']);
+    }
+
+    if (isset($_GET['split'])) {
+        $feed->splitCamelCase($_GET['split']);
+    }
+
+    if (isset($_GET['break'])) {
+        $feed->insertBreaksIntoTags($_GET['break']);
+    }
+
+    if (isset($_GET['cdata'])) {
+        $feed->cdataTags($_GET['cdata']);
+    }
+
+
+    if (isset($_GET['replace_from']) && isset($_GET['replace_to']) && isset($_GET['replace_in'])) {
+        $feed->replaceContent($_GET['replace_from'], $_GET['replace_to'],
+                              $_GET['replace_in'], isset($_GET['replace_sens']));
+    }
+
+    if (isset($_GET['add_category'])) {
+        $feed->addCategory($_GET['add_category']);
+    }
+
+    echo $feed->getXMLAsText();
+} catch (Exception $exc) {
+    http_response_code($exc->getCode());
+    die($exc->getMessage());
 }
-
-$feed = new RSSEditor($url, $context, isset($_GET['amp']), true, @$_GET['add_namespace']);
-
-if (isset($_GET['remove'])) {
-    $feed->removeTags($_GET['remove']);
-}
-
-if (isset($_GET['rename_from']) && isset($_GET['rename_to'])) {
-    $feed->renameTags($_GET['rename_from'], $_GET['rename_to']);
-}
-
-if (isset($_GET['split'])) {
-    $feed->splitCamelCase($_GET['split']);
-}
-
-if (isset($_GET['break'])) {
-    $feed->insertBreaksIntoTags($_GET['break']);
-}
-
-if (isset($_GET['cdata'])) {
-    $feed->cdataTags($_GET['cdata']);
-}
-
-
-if (isset($_GET['replace_from']) && isset($_GET['replace_to']) && isset($_GET['replace_in'])) {
-    $feed->replaceContent($_GET['replace_from'], $_GET['replace_to'],
-        $_GET['replace_in'], isset($_GET['replace_sens']));
-}
-
-if (isset($_GET['add_category'])) {
-    $feed->addCategory($_GET['add_category']);
-}
-
-echo $feed->getXMLAsText();
