@@ -372,7 +372,7 @@ class RSSEditor
             if ($entry_link->length == 0) {
                 continue;
             }
-            $entry_link = $entry_link[0]->nodeValue;
+            $entry_link = $entry_link->item(0)->nodeValue;
             $entry_categories = map($feed_item->getElementsByTagName("category"),
                 function($cat) {return $cat->nodeValue;});
             $entry_page = new DOMDocument();
