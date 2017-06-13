@@ -382,7 +382,7 @@ class RSSEditor
                 throw new Exception("Invalid XPath expression: " . error_get_last()['message']);
             }
             foreach ($categories as $category) {
-                $category_name = trim($category->C14N(), " \t\n\r\0\x0B,;.");
+                $category_name = trim(html_entity_decode($category->C14N()), " \t\n\r\0\x0B,;. ");
                 if (!in_array($category_name, $entry_categories)) {
                     $feed_item->appendChild(new DOMElement("category", $category_name));
                 }
