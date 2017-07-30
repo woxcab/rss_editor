@@ -51,10 +51,10 @@ class RSSEditor
     /**
      * Check pair matching of two objects.
      *
-     * @throws InvalidArgumentException   Only one of two arguments is array or arrays do not have same length
-     *
      * @param $firstObject mixed
      * @param $secondObject mixed
+     *
+     * @throws InvalidArgumentException   Only one of two arguments is array or arrays do not have same length
      */
     protected function checkPairArgumentsMatching($firstObject, $secondObject) {
         if (is_array($firstObject)) {
@@ -97,7 +97,8 @@ class RSSEditor
      *
      * @param $oldTagName string Current name of the tags
      * @param $newTagName string New name for the tags
-     * @throws Exception   if no tags with $oldTagName is found
+     *
+     * @throws TagNotFoundException   if no tags with $oldTagName are found
      */
     protected function renameUnifiedTags($oldTagName, $newTagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($oldTagName));
@@ -117,7 +118,8 @@ class RSSEditor
      * Remove all tags with given name (without children)
      *
      * @param $tagName string|string[] Name of the tag
-     * @throws Exception   if no tags with name $tagName is found
+     *
+     * @throws TagNotFoundException   if no tags with name $tagName are found
      */
     protected function removeUnifiedTags($tagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($tagName));
@@ -133,7 +135,8 @@ class RSSEditor
      * Split content of the tags with given name using <br> CDATA block (without attributes)
      *
      * @param $tagName string Name of the old tag
-     * @throws Exception   if no tags with name $tagName is found
+     *
+     * @throws TagNotFoundException   if no tags with name $tagName are found
      */
     protected function insertBreaksIntoUnifiedTags($tagName) {
         $nodes = $this->xml->getElementsByTagName($tagName);
@@ -150,7 +153,8 @@ class RSSEditor
      * Mark content of the tags with given name as CDATA block (without attributes)
      *
      * @param $tagName string Name of the old tag
-     * @throws Exception   if no tags with name $tagName is found
+     *
+     * @throws TagNotFoundException   if no tags with name $tagName are found
      */
     protected function cdataUnifiedTags($tagName) {
         $nodes = $this->xml->getElementsByTagName($tagName);
@@ -173,7 +177,8 @@ class RSSEditor
      * @param $replaceTo string    Regex to replace found matches.
      * @param $tagName string    Node name which regex is applied in.
      * @param $isCaseSensitive string    If false then modifier 'i' is applied (searching without case sensitive) else case sensitive searching.
-     * @throws Exception   if no tags with name $tagName is found
+     *
+     * @throws TagNotFoundException   if no tags with name $tagName are found
      */
     protected function replaceContentInHomonymousTags($replaceFrom, $replaceTo, $tagName, $isCaseSensitive) {
         $nodes = $this->xml->getElementsByTagName($tagName);
@@ -200,6 +205,7 @@ class RSSEditor
      * @param $replaceAmpToSymbol boolean replace each '&amp;' to '&' symbol
      * @param $htmlEntitiesToNumeric boolean replace all HTML entities to its numeric representation
      * @param $addNamespace string  add additional RSS-namespace(s)
+     *
      * @throws Exception   if cannot download RSS feed or cannot generate valid XML from RSS feed
      */
     public function __construct($url, $context, $replaceAmpToSymbol,
@@ -246,7 +252,8 @@ class RSSEditor
      *
      * @param $oldTagName string|string[] Current name of the tags
      * @param $newTagName string|string[] New name for the tags
-     * @throws Exception   if pair(s) of $oldTagName and $newTagName does not match
+     *
+     * @throws InvalidArgumentException   if pair(s) of $oldTagName and $newTagName does not match
      */
     public function renameTags($oldTagName, $newTagName) {
         $oldTagName = wrapInArray($oldTagName);
@@ -302,7 +309,8 @@ class RSSEditor
      *     <tag>camel</tag><tag>case</tag><tag>string</tag>
      *
      * @param $tagName string
-     * @throws Exception   if no tags with name $tagName is found
+     *
+     * @throws TagNotFoundException   if no tags with name $tagName are found
      */
     public function splitCamelCase($tagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($tagName));
@@ -331,7 +339,8 @@ class RSSEditor
      * @param $replaceTo string|string[]    Regex to replace found matches.
      * @param $replaceInTag string|string[]    Node name which regex is applied in.
      * @param $isCaseSensitive string|string[]    If false then modifier 'i' is applied (searching without case sensitive) else case sensitive searching.
-     * @throws Exception   if pair(s) of $oldTagName and $newTagName does not match
+     *
+     * @throws InvalidArgumentException   if pair(s) of $oldTagName and $newTagName does not match
      */
     public function replaceContent($replaceFrom, $replaceTo, $replaceInTag, $isCaseSensitive) {
         $replaceFrom = wrapInArray($replaceFrom);
@@ -371,7 +380,8 @@ class RSSEditor
      * If feed item does not have link then this item is ignored.
      *
      * @param $xpath string   XPath 1.0 expression that extracts category names
-     * @throws Exception   if invalid XPath 1.0 expression is passed
+     *
+     * @throws InvalidArgumentException   if invalid XPath 1.0 expression is passed
      */
     public function addCategory($xpath) {
         foreach ($this->xml->getElementsByTagName("item") as $feed_item) {
@@ -386,7 +396,7 @@ class RSSEditor
             @$entry_page->loadHTMLFile($entry_link);
             $categories = @(new DOMXPath($entry_page))->query($xpath);
             if ($categories === false) {
-                throw new Exception("Invalid XPath expression: " . error_get_last()['message']);
+                throw new InvalidArgumentException("Invalid XPath expression: " . error_get_last()['message']);
             }
             foreach ($categories as $category) {
                 $category_name = trim(html_entity_decode($category->C14N()), " \t\n\r\0\x0B,;. ");
