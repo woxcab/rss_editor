@@ -144,7 +144,12 @@ class RSSEditor
             throw new TagNotFoundException($tagName);
         }
         foreach ($nodes as $node) {
-            $node->nodeValue = htmlspecialchars(preg_replace('/[\r\n]+/u', '<br/>', $node->nodeValue));
+            $result = preg_replace('/[\r\n]+/u', '<br/>', $node->nodeValue);
+            if ($node->childNodes->item(0)->nodeType === XML_CDATA_SECTION_NODE) {
+                $node->replaceChild(new DOMCdataSection($result), $node->childNodes->item(0));
+            } else {
+                $node->nodeValue = htmlspecialchars($result);
+            }
         }
     }
 
@@ -191,8 +196,14 @@ class RSSEditor
             if ($node->childNodes->length <= 2) {
                 foreach($node->childNodes as $childNode) {
                     if ($childNode->nodeType === XML_TEXT_NODE || $childNode->nodeType === XML_CDATA_SECTION_NODE) {
-                        $childNode->nodeValue = preg_replace($isCaseSensitive ? "/$replaceFrom/u" : "/$replaceFrom/iu",
-                            $replaceTo, $childNode->nodeValue);
+                        $result = preg_replace($isCaseSensitive ? "/$replaceFrom/u" : "/$replaceFrom/iu",
+                                         $replaceTo, $childNode->nodeValue);
+                        if ($childNode->nodeType === XML_TEXT_NODE) {
+                            $childNode->nodeValue = htmlspecialchars($result);
+                        } else {
+                            $childNode->nodeValue = '';
+                            $childNode->appendChild(new DOMCdataSection($result));
+                        }
                     }
                 }
             }
@@ -319,11 +330,10 @@ class RSSEditor
         }
         foreach ($nodes as $node) {
             $matches = array();
-            preg_match_all("/((?:^|[A-ZА-Я])[a-zа-я]+|[A-ZА-Я]+(?=[А-Я]|$))/u",
-                $node->nodeValue, $matches);
+            preg_match_all("/((?:^|[A-ZА-Я])[a-zа-я]+|[A-ZА-Я]+(?=[А-Я]|$))/u", $node->nodeValue, $matches);
             foreach ($matches[0] as $match) {
                 $newNode = $this->xml->createElement($tagName);
-                $newNode->nodeValue = mb_strtolower($match);
+                $newNode->appendChild(new DOMCdataSection(mb_strtolower($match)));
                 $node->parentNode->appendChild($newNode);
             }
             $node->parentNode->removeChild($node);
