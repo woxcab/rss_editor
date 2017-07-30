@@ -492,5 +492,6 @@ try {
     echo $feed->getXMLAsText();
 } catch (Exception $exc) {
     http_response_code($exc->getCode());
+    error_log($exc);
     die($exc->getMessage());
 }
