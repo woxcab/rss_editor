@@ -156,7 +156,7 @@ class RSSEditor
             throw new TagNotFoundException($tagName);
         }
         foreach ($nodes as $node) {
-            $result = preg_replace('/[\r\n]+/u', '<br/>', $node->nodeValue);
+            $result = preg_replace('/([\r\n]|&#x[Dd];|&#13;)+(\s+([\r\n]|&#x[Dd];|&#13;)+)*/u', '<br/>', $node->nodeValue);
             if ($node->childNodes->item(0)->nodeType === XML_CDATA_SECTION_NODE) {
                 $node->replaceChild($this->xml->createCDATASection($result), $node->childNodes->item(0));
             } else {
@@ -471,7 +471,7 @@ class RSSEditor
             } catch (TagNotFoundException $exc) {
                 continue;
             }
-            $description = implode("\r\n", map($paragraphs, function ($par) {return trim($par->C14N());}));
+            $description = implode(PHP_EOL, map($paragraphs, function ($par) {return trim($par->C14N());}));
 
             $description_elements = $feed_item->getElementsByTagName("description");
             foreach ($description_elements as $description_element) {
@@ -497,14 +497,14 @@ class RSSEditor
             } catch (TagNotFoundException $exc) {
                 continue;
             }
-            $description = implode("\r\n", map($paragraphs, function ($par) {return trim($par->C14N());}));
+            $description = implode(PHP_EOL, map($paragraphs, function ($par) {return trim($par->C14N());}));
 
             $description_elements = $feed_item->getElementsByTagName("description");
             if ($description_elements->length > 0) {
                 $description_element = $description_elements->item(0);
                 $src_description = $description_elements->item(0)->nodeValue;
                 $feed_item->removeChild($description_element);
-                $description = $src_description . '\r\n' . $description;
+                $description = $src_description . PHP_EOL . $description;
             }
             $description_element = $feed_item->appendChild($this->xml->createElement("description"));
             $description_element->appendChild($this->xml->createCDATASection($description));
