@@ -28,6 +28,18 @@ function map($traversable, $fn)
     return $result;
 }
 
+function chainArrays($array) {
+    $result = array();
+    foreach ($array as $val) {
+        if (is_array($val)) {
+            $result = array_merge($result, chainArrays($val));
+        } else {
+            array_push($result, $val);
+        }
+    }
+    return $result;
+}
+
 class TagNotFoundException extends Exception {
     public function __construct($tag_name)
     {
@@ -524,11 +536,39 @@ try {
     $context = stream_context_create($opts);
     libxml_set_streams_context($context);
 
+    $allowed_parameters = array(
+        'url',
+        'amp',
+        'add_namespace',
+        'remove',
+        'break',
+        'split',
+        'cdata',
+        'add_category',
+        'replace_description',
+        'extend_description',
+        array('rename_from', 'rename_to'),
+        array('replace_from', 'replace_to', 'replace_in'),
+        'replace_sens'
+    );
+
     if (!isset($_GET['url'])) {
         throw new InvalidArgumentException("No url of RSS for processing", 400);
     }
     $url = $_GET['url'];
+    $passed_params = array_keys($_GET);
+    $matched_params = preg_grep('/index[._]php$/u', $passed_params);
+    if (!empty($matched_params)) {
+        unset($_GET[$matched_params[0]]);
+    }
+    $all_allowed_parameters = chainArrays($allowed_parameters);
+    $unregistered_parameters = array_diff(array_keys($_GET), $all_allowed_parameters);
+    if (!empty($unregistered_parameters)) {
+        throw new Exception("Unknown parameters: " . implode(', ', $unregistered_parameters)
+                            . ". Supported parameters: " . implode(', ', $all_allowed_parameters), 400);
+    }
     if (!(isset($_GET['amp']) ||
+            isset($_GET['add_namespace']) ||
             isset($_GET['remove']) ||
             isset($_GET['break']) ||
             isset($_GET['split']) ||
