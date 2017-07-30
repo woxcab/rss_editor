@@ -517,6 +517,10 @@ try {
             'user_agent' => 'Mozilla/5.0 (Windows NT 6.1; rv:21.0) Gecko/20130401 Firefox/21.0',
         )
     );
+    $outer_encoding = mb_internal_encoding();
+    if (!mb_internal_encoding("UTF-8")) {
+        throw new Exception("Cannot set encoding UTF-8 for multibyte strings", 500);
+    }
     $context = stream_context_create($opts);
     libxml_set_streams_context($context);
 
@@ -582,6 +586,7 @@ try {
     }
 
     echo $feed->getXMLAsText();
+    mb_internal_encoding($outer_encoding);
 } catch (Exception $exc) {
     http_response_code($exc->getCode());
     error_log($exc);
