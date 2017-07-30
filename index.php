@@ -436,7 +436,7 @@ class RSSEditor
             $entry_categories = map($feed_item->getElementsByTagName("category"),
                 function($cat) {return trim($cat->nodeValue);});
             foreach ($categories as $category) {
-                $category_name = trim(html_entity_decode($category->C14N()), " \t\n\r\0\x0B,;. ");
+                $category_name = trim($category->nodeValue, " \t\n\r\0\x0B,;. ");
                 if (!in_array($category_name, $entry_categories)) {
                     $category_element = $feed_item->appendChild(new DOMElement("category"));
                     $category_element->appendChild(new DOMCdataSection($category_name));
