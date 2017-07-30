@@ -146,7 +146,7 @@ class RSSEditor
         foreach ($nodes as $node) {
             $result = preg_replace('/[\r\n]+/u', '<br/>', $node->nodeValue);
             if ($node->childNodes->item(0)->nodeType === XML_CDATA_SECTION_NODE) {
-                $node->replaceChild(new DOMCdataSection($result), $node->childNodes->item(0));
+                $node->replaceChild($this->xml->createCDATASection($result), $node->childNodes->item(0));
             } else {
                 $node->nodeValue = htmlspecialchars($result);
             }
@@ -202,7 +202,7 @@ class RSSEditor
                             $childNode->nodeValue = htmlspecialchars($result);
                         } else {
                             $childNode->nodeValue = '';
-                            $childNode->appendChild(new DOMCdataSection($result));
+                            $childNode->appendChild($this->xml->createCDATASection($result));
                         }
                     }
                 }
@@ -335,7 +335,7 @@ class RSSEditor
             preg_match_all("/((?:^|[A-ZА-Я])[a-zа-я]+|[A-ZА-Я]+(?=[А-Я]|$))/u", $node->nodeValue, $matches);
             foreach ($matches[0] as $match) {
                 $newNode = $this->xml->createElement($tagName);
-                $newNode->appendChild(new DOMCdataSection(mb_strtolower($match)));
+                $newNode->appendChild($this->xml->createCDATASection(mb_strtolower($match)));
                 $node->parentNode->appendChild($newNode);
             }
             $node->parentNode->removeChild($node);
@@ -412,7 +412,7 @@ class RSSEditor
             $entry_doc = new DOMXPath($entry_page);
             $this->entry_webpages[$entry_link] = $entry_doc;
         }
-        $result = @($entry_doc)->query($xpath);
+        $result = @($entry_doc->query($xpath));
         if ($result === false) {
             throw new InvalidArgumentException("Invalid XPath expression < {$xpath} >: " . error_get_last()['message']);
         }
@@ -438,8 +438,8 @@ class RSSEditor
             foreach ($categories as $category) {
                 $category_name = trim($category->nodeValue, " \t\n\r\0\x0B,;. ");
                 if (!in_array($category_name, $entry_categories)) {
-                    $category_element = $feed_item->appendChild(new DOMElement("category"));
-                    $category_element->appendChild(new DOMCdataSection($category_name));
+                    $category_element = $feed_item->appendChild($this->xml->createElement("category"));
+                    $category_element->appendChild($this->xml->createCDATASection($category_name));
                 }
             }
         }
@@ -465,8 +465,8 @@ class RSSEditor
             foreach ($description_elements as $description_element) {
                 $feed_item->removeChild($description_element);
             }
-            $description_element = $feed_item->appendChild(new DOMElement("description"));
-            $description_element->appendChild(new DOMCdataSection($description));
+            $description_element = $feed_item->appendChild($this->xml->createElement("description"));
+            $description_element->appendChild($this->xml->createCDATASection($description));
         }
     }
 
@@ -492,10 +492,10 @@ class RSSEditor
                 $description_element = $description_elements->item(0);
                 $src_description = $description_elements->item(0)->nodeValue;
                 $feed_item->removeChild($description_element);
-                $description = $src_description . $description;
+                $description = $src_description . '\r\n' . $description;
             }
-            $description_element = $feed_item->appendChild(new DOMElement("description"));
-            $description_element->appendChild(new DOMCdataSection($description));
+            $description_element = $feed_item->appendChild($this->xml->createElement("description"));
+            $description_element->appendChild($this->xml->createCDATASection($description));
         }
     }
 
