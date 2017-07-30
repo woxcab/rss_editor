@@ -22,18 +22,25 @@
 |11 | `replace_sens`             | presence/absence                        | match case or not        | Case sensitivity. If `replace_sens` (or `replace_sens[i]`) is passed then replacement will be case sensitive else not.                                                                                                                                                                                                                                                                                                                                                                                                            |
 |12 | `add_category`             | string                                  | [XPath 1.0 expression](http://www.w3schools.com/xsl/xpath_intro.asp) | It extracts values from a webpage of each RSS item (webpage URL is extracted from a `<link>` if it exists, otherwise item is ignored) using XPath expression and add `<category>` elements (to the appropriate RSS item) for each extracted value. If XPath-expression extracts whole tags then category will contain HTML-code, therefore XPath-expression must extract the final text (array of texts)                                                                              |
 
-## Example
-Replacing `&amp;` with `&` in the tags content,
-adding `xmlns:yandex="http://news.yandex.ru/"` namespace,
-removing `description` tag,
-renaming `full-text` tag (from `yandex` namespace) to `description`,
-wrapping content of `title` and `description` tags into `CDATA` block,
-adding `<br/>` instead of break lines characters in the `description` tag content,
-also replacing all `ё` occurrences with `е` (case insensitive) in the`description` tag content:
-in the RSS feed http://milknews.ru/index/novosti-moloko.rss
-```
-index.php?url=http%3A%2F%2Fmilknews.ru%2Findex%2Fnovosti-moloko.rss&amp&add_namespace=xmlns%3Ayandex%3D%22http%3A%2F%2Fnews.yandex.ru%2F%22&remove=description&rename_from=full-text&rename_to=description&cdata[]=title&cdata[]=description&break=description&replace_from=ё&replace_to=е&replace_in=description
-```
+## Examples
+* Replacing `&amp;` with `&` in the tags content,
+  adding `xmlns:yandex="http://news.yandex.ru/"` namespace,
+  removing `description` tag,
+  renaming `full-text` tag (from `yandex` namespace) to `description`,
+  wrapping content of `title` and `description` tags into `CDATA` block,
+  adding `<br/>` instead of break lines characters in the `description` tag content,
+  also replacing all `ё` occurrences with `е` (case insensitive) in the`description` tag content:
+  in the RSS feed http://milknews.ru/index/novosti-moloko.rss
+  ```
+  index.php?url=http%3A%2F%2Fmilknews.ru%2Findex%2Fnovosti-moloko.rss&amp&add_namespace=xmlns%3Ayandex%3D%22http%3A%2F%2Fnews.yandex.ru%2F%22&remove=description&rename_from=full-text&rename_to=description&cdata[]=title&cdata[]=description&break=description&replace_from=ё&replace_to=е&replace_in=description
+  ```
+
+* Replacing description of each news with content of news web-page,
+  that matches XPath expression `//div[@class='article_introtext']|//div[@class='article_fulltext']/p`
+  in the RSS feed http://www.fontanka.ru/fontanka.rss
+  ```
+  index.php?url=http%3A%2F%2Fwww.fontanka.ru%2Ffontanka.rss&replace_description=%2F%2Fdiv%5B%40class%3D'article_introtext'%5D%7C%2F%2Fdiv%5B%40class%3D'article_fulltext'%5D%2Fp
+  ```
 
 # <a name="rus"></a> Простенький редактор RSS-ленты
 ## Обязательный GET-параметр
@@ -60,8 +67,25 @@ index.php?url=http%3A%2F%2Fmilknews.ru%2Findex%2Fnovosti-moloko.rss&amp&add_name
 
 Пример работы параметра `split`: подано значение `split=tag`, поэтому было `<tag>КрепостьЧПЗдоровьеНебо</tag>`, стало `<tag>крепость</tag><tag>чп</tag><tag>здоровье</tag><tag>небо</tag>`
 
-## Пример использования
-В RSS-ленте http://milknews.ru/index/novosti-moloko.rss замена `&amp;` на `&`, добавление пространства имен `xmlns:yandex="http://news.yandex.ru/"`, удаление тега `description`, переименования тега `full-text` (из пространства `yandex`) в `description`, заворачивание в `CDATA` содержимое тегов `title` и `description`, а также добавление `<br/>` заместо переносов строк в содержимом тега `description`, дополнительно к этому проводится замена всех вхождений буквы `ё` на `е` (без учёта регистра) в тегах с именем `description`:
-```
-index.php?url=http%3A%2F%2Fmilknews.ru%2Findex%2Fnovosti-moloko.rss&amp&add_namespace=xmlns%3Ayandex%3D%22http%3A%2F%2Fnews.yandex.ru%2F%22&remove=description&rename_from=full-text&rename_to=description&cdata[]=title&cdata[]=description&break=description&replace_from=ё&replace_to=е&replace_in=description
-```
+## Примеры использования
+* В RSS-ленте http://milknews.ru/index/novosti-moloko.rss
+  замена `&amp;` на `&`,
+  добавление пространства имен `xmlns:yandex="http://news.yandex.ru/"`,
+  удаление тега `description`,
+  переименования тега `full-text` (из пространства `yandex`) в `description`,
+  заворачивание в `CDATA` содержимое тегов `title` и `description`,
+  а также добавление `<br/>` заместо переносов строк в содержимом тега `description`,
+  дополнительно к этому проводится замена всех вхождений
+  буквы `ё` на `е` (без учёта регистра) в тегах с именем `description`:
+  ```
+  index.php?url=http%3A%2F%2Fmilknews.ru%2Findex%2Fnovosti-moloko.rss&amp&add_namespace=xmlns%3Ayandex%3D%22http%3A%2F%2Fnews.yandex.ru%2F%22&remove=description&rename_from=full-text&rename_to=description&cdata[]=title&cdata[]=description&break=description&replace_from=ё&replace_to=е&replace_in=description
+  ```
+
+* В RSS-ленте http://www.fontanka.ru/fontanka.rss
+  замена описания новостей на то,
+  что содержится на веб-странице новости, соответствующее XPath-выражению
+  `//div[@class='article_introtext']|//div[@class='article_fulltext']/p`
+  ```
+  index.php?url=http%3A%2F%2Fwww.fontanka.ru%2Ffontanka.rss&replace_description=%2F%2Fdiv%5B%40class%3D'article_introtext'%5D%7C%2F%2Fdiv%5B%40class%3D'article_fulltext'%5D%2Fp
+  ```
+  
