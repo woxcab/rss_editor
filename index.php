@@ -28,6 +28,13 @@ function map($traversable, $fn)
     return $result;
 }
 
+class TagNotFoundException extends Exception {
+    public function __construct($tag_name)
+    {
+        parent::__construct("No tags with name " . $tag_name, 400);
+    }
+}
+
 
 class RSSEditor
 {
@@ -96,7 +103,7 @@ class RSSEditor
         $nodes = iterator_to_array($this->xml->getElementsByTagName($oldTagName));
 
         if (count($nodes) == 0) {
-            throw new Exception("No tags with name '{$oldTagName}'", 400);
+            throw new TagNotFoundException($oldTagName);
         };
         foreach ($nodes as $node) {
             $newNode = $this->xml->createElement($newTagName);
@@ -115,7 +122,7 @@ class RSSEditor
     protected function removeUnifiedTags($tagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($tagName));
         if (count($nodes) == 0) {
-            throw new Exception("No tags with name '{$tagName}'", 400);
+            throw new TagNotFoundException($tagName);
         };
         foreach ($nodes as $node) {
             $node->parentNode->removeChild($node);
@@ -131,7 +138,7 @@ class RSSEditor
     protected function insertBreaksIntoUnifiedTags($tagName) {
         $nodes = $this->xml->getElementsByTagName($tagName);
         if ($nodes->length == 0) {
-            throw new Exception("No tags with name '{$tagName}'", 400);
+            throw new TagNotFoundException($tagName);
         }
         foreach ($nodes as $node) {
             $node->nodeValue = htmlspecialchars(preg_replace('/[\r\n]+/u', '<br/>', $node->nodeValue));
@@ -148,7 +155,7 @@ class RSSEditor
     protected function cdataUnifiedTags($tagName) {
         $nodes = $this->xml->getElementsByTagName($tagName);
         if ($nodes->length == 0) {
-            throw new Exception("No tags with name '{$tagName}'", 400);
+            throw new TagNotFoundException($tagName);
         }
         foreach ($nodes as $node) {
             $CDATASection = $this->xml->createCDATASection($node->nodeValue);
@@ -171,7 +178,7 @@ class RSSEditor
     protected function replaceContentInHomonymousTags($replaceFrom, $replaceTo, $tagName, $isCaseSensitive) {
         $nodes = $this->xml->getElementsByTagName($tagName);
         if ($nodes->length == 0) {
-            throw new Exception("No tags with name '{$tagName}'", 400);
+            throw new TagNotFoundException($tagName);
         }
         $replaceFrom = str_replace('/', '\/', $replaceFrom);
 
@@ -247,7 +254,7 @@ class RSSEditor
         try {
             $this->checkPairArgumentsMatching($oldTagName, $newTagName);
         } catch (InvalidArgumentException $e) {
-            throw new Exception("Invalid rename_from/rename_to parameters: " . $e->getMessage(), 400);
+            throw new InvalidArgumentException("Invalid rename_from/rename_to parameters: " . $e->getMessage(), 400);
         }
         $this->applyAction(array($this, 'renameUnifiedTags'),
             array_map(function($ind) use ($oldTagName, $newTagName)
@@ -300,7 +307,7 @@ class RSSEditor
     public function splitCamelCase($tagName) {
         $nodes = iterator_to_array($this->xml->getElementsByTagName($tagName));
         if (count($nodes) == 0) {
-            throw new Exception("No tags with name {$tagName}", 400);
+            throw new TagNotFoundException($tagName);
         }
         foreach ($nodes as $node) {
             $matches = array();
@@ -332,13 +339,13 @@ class RSSEditor
         try {
             $this->checkPairArgumentsMatching($replaceFrom, $replaceTo);
         } catch (InvalidArgumentException $e) {
-            throw new Exception("Invalid replace_from/replace_to parameters: " . $e->getMessage(), 400);
+            throw new InvalidArgumentException("Invalid replace_from/replace_to parameters: " . $e->getMessage(), 400);
         }
         if (is_array($replaceInTag)) {
             try {
                 $this->checkPairArgumentsMatching($replaceFrom, $replaceInTag);
             } catch (InvalidArgumentException $e) {
-                throw new Exception("Invalid replace_from/replace_to/replace_in parameters: " . $e->getMessage(), 400);
+                throw new InvalidArgumentException("Invalid replace_from/replace_to/replace_in parameters: " . $e->getMessage(), 400);
             }
         } else {
             $replaceInTag = array_fill(0, count($replaceFrom), $replaceInTag);
@@ -347,7 +354,7 @@ class RSSEditor
             try {
                 $this->checkPairArgumentsMatching($replaceFrom, $isCaseSensitive);
             } catch (InvalidArgumentException $e) {
-                throw new Exception("Invalid replace_from/replace_to/replace_sens parameters: " . $e->getMessage(), 400);
+                throw new InvalidArgumentException("Invalid replace_from/replace_to/replace_sens parameters: " . $e->getMessage(), 400);
             }
         } else {
             $isCaseSensitive = array_fill(0, count($replaceFrom), $isCaseSensitive);
@@ -412,7 +419,7 @@ try {
     libxml_set_streams_context($context);
 
     if (!isset($_GET['url'])) {
-        throw new Exception("No url of RSS for processing", 400);
+        throw new InvalidArgumentException("No url of RSS for processing", 400);
     }
     $url = $_GET['url'];
     if (!(isset($_GET['amp']) ||
@@ -426,7 +433,8 @@ try {
             (isset($_GET['replace_from']) || isset($_GET['replace_to']) || isset($_GET['replace_in'])) &&
             (!isset($_GET['replace_from']) || !isset($_GET['replace_to']) || !isset($_GET['replace_in'])))
     ) {
-        throw new Exception("Incomplete parameters (must be rename_from and rename_to OR remove OR break OR cdata OR replace_from and replace_to and replace_in OR addCategory");
+        throw new InvalidArgumentException("Incomplete parameters (must be rename_from and rename_to OR remove " .
+                                           "OR break OR cdata OR replace_from and replace_to and replace_in OR addCategory");
     }
 
     $feed = new RSSEditor($url, $context, isset($_GET['amp']), true, @$_GET['add_namespace']);
