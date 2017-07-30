@@ -244,6 +244,8 @@ class RSSEditor
             throw new Exception("Cannot form valid XML", 500);
         }
 
+        $this->entry_webpages = array();
+
         header("Content-type: text/xml; charset={$this->xml->encoding}");
     }
 
@@ -389,31 +391,111 @@ class RSSEditor
      * that extract list of category names from web-page.
      * If feed item does not have link then this item is ignored.
      *
+     * @param $feedItem DOMNode   Feed item node
      * @param $xpath string   XPath 1.0 expression that extracts category names
+     * @return DOMNodeList   Extracted data using XPath expression
      *
+     * @throws TagNotFoundException   if feed item does not contain 'link' element
      * @throws InvalidArgumentException   if invalid XPath 1.0 expression is passed
+     */
+    protected function xpathQuery($feedItem, $xpath) {
+        $entry_link = $feedItem->getElementsByTagName("link");
+        if ($entry_link->length == 0) {
+            throw new TagNotFoundException("link");
+        }
+        $entry_link = $entry_link->item(0)->nodeValue;
+        if (isset($this->entry_webpages[$entry_link])) {
+            $entry_doc = $this->entry_webpages[$entry_link];
+        } else {
+            $entry_page = new DOMDocument();
+            @$entry_page->loadHTMLFile($entry_link);
+            $entry_doc = new DOMXPath($entry_page);
+            $this->entry_webpages[$entry_link] = $entry_doc;
+        }
+        $result = @($entry_doc)->query($xpath);
+        if ($result === false) {
+            throw new InvalidArgumentException("Invalid XPath expression < {$xpath} >: " . error_get_last()['message']);
+        }
+        return $result;
+    }
+
+    /**
+     * Add categories to each feed item from its web-page ('link' element) using XPath expression
+     * that extract list of category names from web-page.
+     * If some feed item does not have link then this item is ignored.
+     *
+     * @param $xpath string   XPath 1.0 expression that extracts category names
      */
     public function addCategory($xpath) {
         foreach ($this->xml->getElementsByTagName("item") as $feed_item) {
-            $entry_link = $feed_item->getElementsByTagName("link");
-            if ($entry_link->length == 0) {
+            try {
+                $categories = $this->xpathQuery($feed_item, $xpath);
+            } catch (TagNotFoundException $exc) {
                 continue;
             }
-            $entry_link = $entry_link->item(0)->nodeValue;
             $entry_categories = map($feed_item->getElementsByTagName("category"),
-                function($cat) {return $cat->nodeValue;});
-            $entry_page = new DOMDocument();
-            @$entry_page->loadHTMLFile($entry_link);
-            $categories = @(new DOMXPath($entry_page))->query($xpath);
-            if ($categories === false) {
-                throw new InvalidArgumentException("Invalid XPath expression: " . error_get_last()['message']);
-            }
+                function($cat) {return trim($cat->nodeValue);});
             foreach ($categories as $category) {
                 $category_name = trim(html_entity_decode($category->C14N()), " \t\n\r\0\x0B,;. ");
                 if (!in_array($category_name, $entry_categories)) {
-                    $feed_item->appendChild(new DOMElement("category", $category_name));
+                    $category_element = $feed_item->appendChild(new DOMElement("category"));
+                    $category_element->appendChild(new DOMCdataSection($category_name));
                 }
             }
+        }
+    }
+
+    /**
+     * Replace description of each feed item with its web-page content (with URL from 'link' element)
+     * that extracted using XPath expression.
+     * If some feed item does not have link then this item is ignored.
+     *
+     * @param $xpath string   XPath 1.0 expression that extracts category names
+     */
+    public function replaceDescription($xpath) {
+        foreach ($this->xml->getElementsByTagName("item") as $feed_item) {
+            try {
+                $paragraphs = $this->xpathQuery($feed_item, $xpath);
+            } catch (TagNotFoundException $exc) {
+                continue;
+            }
+            $description = implode("\r\n", map($paragraphs, function ($par) {return trim($par->C14N());}));
+
+            $description_elements = $feed_item->getElementsByTagName("description");
+            foreach ($description_elements as $description_element) {
+                $feed_item->removeChild($description_element);
+            }
+            $description_element = $feed_item->appendChild(new DOMElement("description"));
+            $description_element->appendChild(new DOMCdataSection($description));
+        }
+    }
+
+
+    /**
+     * Extend description of each feed item with its web-page content (with URL from 'link' element)
+     * that extracted using XPath expression.
+     * If some feed item does not have link then this item is ignored.
+     *
+     * @param $xpath string   XPath 1.0 expression that extracts category names
+     */
+    public function extendDescription($xpath) {
+        foreach ($this->xml->getElementsByTagName("item") as $feed_item) {
+            try {
+                $paragraphs = $this->xpathQuery($feed_item, $xpath);
+            } catch (TagNotFoundException $exc) {
+                continue;
+            }
+            $description = implode("\r\n", map($paragraphs, function ($par) {return trim($par->C14N());}));
+
+            $description_elements = $feed_item->getElementsByTagName("description");
+            if ($description_elements->length > 0) {
+                $description_element = $description_elements->item(0);
+                $src_description = $description_elements->item(0)->nodeValue;
+                $feed_item->removeChild($description_element);
+                $description = $src_description . $description;
+            }
+            $description_element = $feed_item->appendChild(new DOMElement("description"));
+            $description_element->appendChild(new DOMCdataSection($description));
         }
     }
 
@@ -447,14 +529,17 @@ try {
             isset($_GET['break']) ||
             isset($_GET['split']) ||
             isset($_GET['cdata']) ||
-            isset($_GET['add_category'])) &&
+            isset($_GET['add_category']) ||
+            isset($_GET['replace_description']) ||
+            isset($_GET['extend_description'])) &&
         ((isset($_GET['rename_from']) || isset($_GET['rename_to'])) &&
             (!isset($_GET['rename_from']) || !isset($_GET['rename_to'])) ||
             (isset($_GET['replace_from']) || isset($_GET['replace_to']) || isset($_GET['replace_in'])) &&
             (!isset($_GET['replace_from']) || !isset($_GET['replace_to']) || !isset($_GET['replace_in'])))
     ) {
         throw new InvalidArgumentException("Incomplete parameters (must be rename_from and rename_to OR remove " .
-                                           "OR break OR cdata OR replace_from and replace_to and replace_in OR addCategory");
+                                           "OR replace_description OR extend_description OR break OR cdata " .
+                                           "OR replace_from and replace_to and replace_in OR addCategory");
     }
 
     $feed = new RSSEditor($url, $context, isset($_GET['amp']), true, @$_GET['add_namespace']);
@@ -466,9 +551,16 @@ try {
     if (isset($_GET['rename_from']) && isset($_GET['rename_to'])) {
         $feed->renameTags($_GET['rename_from'], $_GET['rename_to']);
     }
-
     if (isset($_GET['split'])) {
         $feed->splitCamelCase($_GET['split']);
+    }
+
+    if (isset($_GET['replace_description'])) {
+        $feed->replaceDescription($_GET['replace_description']);
+    }
+
+    if (isset($_GET['extend_description'])) {
+        $feed->extendDescription($_GET['extend_description']);
     }
 
     if (isset($_GET['break'])) {
