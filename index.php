@@ -1,5 +1,6 @@
 <?php
 
+libxml_use_internal_errors(true);
 
 function allElementsAreArrays($array) {
     foreach ($array as $val) {
@@ -38,6 +39,23 @@ function chainArrays($array) {
         }
     }
     return $result;
+}
+
+function display_xml_error($error) {
+    $return = "";
+    switch ($error->level) {
+        case LIBXML_ERR_WARNING:
+            $return .= "Warning $error->code: ";
+            break;
+        case LIBXML_ERR_ERROR:
+            $return .= "Error $error->code: ";
+            break;
+        case LIBXML_ERR_FATAL:
+            $return .= "Fatal Error $error->code: ";
+            break;
+    }
+    $return .= trim($error->message);
+    return $return;
 }
 
 class TagNotFoundException extends Exception {
@@ -233,12 +251,20 @@ class RSSEditor
      */
     public function __construct($url, $context, $replaceAmpToSymbol,
                                 $htmlEntitiesToNumeric, $addNamespace) {
-        $this->plainText = file_get_contents($url, false, $context);
+        $this->plainText = file_get_contents($url, FILE_TEXT, $context);
+        if (!isset($http_response_header) || $http_response_header[0] != "HTTP/1.1 200 OK") {
+            if (isset($http_response_header)) {
+                $status = ": {$http_response_header[0]}";
+            } else {
+                $status = "";
+            }
+            throw new Exception("Cannot download RSS feed from URL '{$url}'{$status}", 500);
+        }
         if (!$this->plainText) {
             throw new Exception("Cannot download RSS feed from URL '{$url}'", 500);
         }
         if ($replaceAmpToSymbol) {
-            $this->plainText = preg_replace('/&amp;(?=[a-z]{2})/', "&", $this->plainText);
+            $this->plainText = preg_replace('/&amp;(?=[a-z]{2})/', "&", $this->plainText, FILE_TEXT);
         }
 
         // replace  & into code if it is not encoded symbol
@@ -253,7 +279,10 @@ class RSSEditor
 
         $this->xml = new DOMDocument();
         if (!$this->xml->loadXML($this->plainText)) {
-            throw new Exception("Cannot form valid XML", 500);
+            $errors = libxml_get_errors();
+            throw new Exception("Cannot form valid XML: "
+                                . join(PHP_EOL, array_map('display_xml_error', $errors)),
+                                500);
         }
 
         $this->entry_webpages = array();
@@ -628,7 +657,8 @@ try {
     echo $feed->getXMLAsText();
     mb_internal_encoding($outer_encoding);
 } catch (Exception $exc) {
-    http_response_code($exc->getCode());
+    header("HTTP/1.1 {$exc->getCode()} {$exc->getMessage()}");
+    header("Content-type: text/plain; charset=UTF-8");
     error_log($exc);
     die($exc->getMessage());
 }
