@@ -1,5 +1,10 @@
 <?php
 
+define('DEBUG', false);
+define('MIN_DOWNLOAD_DELAY', 0.12);
+define('MAX_DOWNLOAD_DELAY', 0.94);
+define('USE_WEBPAGE_CACHING', true);
+
 libxml_use_internal_errors(true);
 
 function allElementsAreArrays($array) {
@@ -76,7 +81,6 @@ class RSSEditor
      * @var DOMDocument XML document as valid DOMDocument object
      */
     protected $xml;
-
 
     /**
      * Check pair matching of two objects.
@@ -246,12 +250,17 @@ class RSSEditor
      * @param $replaceAmpToSymbol boolean replace each '&amp;' to '&' symbol
      * @param $htmlEntitiesToNumeric boolean replace all HTML entities to its numeric representation
      * @param $addNamespace string  add additional RSS-namespace(s)
+     * @param $need_webpage_caching boolean  whether the necessity to cache downloaded web-pages
      *
      * @throws Exception   if cannot download RSS feed or cannot generate valid XML from RSS feed
      */
     public function __construct($url, $context, $replaceAmpToSymbol,
-                                $htmlEntitiesToNumeric, $addNamespace) {
-        $this->plainText = file_get_contents($url, FILE_TEXT, $context);
+                                $htmlEntitiesToNumeric, $addNamespace,
+                                $need_webpage_caching = USE_WEBPAGE_CACHING) {
+        $this->plainText = @file_get_contents($url, FILE_TEXT, $context);
+        if (defined('DEBUG') && DEBUG) {
+            file_put_contents('last_raw_rss.xml', join(PHP_EOL, $http_response_header) . PHP_EOL . $this->plainText);
+        }
         if (!isset($http_response_header) || $http_response_header[0] != "HTTP/1.1 200 OK") {
             if (isset($http_response_header)) {
                 $status = ": {$http_response_header[0]}";
@@ -277,6 +286,9 @@ class RSSEditor
             $this->plainText = str_replace('<rss', '<rss ' . $addNamespace, $this->plainText);
         }
 
+        if (defined('DEBUG') && DEBUG) {
+            file_put_contents('last_preprocessed_rss.xml', join(PHP_EOL, $http_response_header) . PHP_EOL . $this->plainText);
+        }
         $this->xml = new DOMDocument();
         if (!$this->xml->loadXML($this->plainText)) {
             $errors = libxml_get_errors();
@@ -286,6 +298,7 @@ class RSSEditor
         }
 
         $this->entry_webpages = array();
+        $this->use_webpage_caching = $need_webpage_caching;
 
         header("Content-type: text/xml; charset={$this->xml->encoding}");
     }
@@ -445,13 +458,15 @@ class RSSEditor
             throw new TagNotFoundException("link");
         }
         $entry_link = $entry_link->item(0)->nodeValue;
-        if (isset($this->entry_webpages[$entry_link])) {
+        if ($this->use_webpage_caching && isset($this->entry_webpages[$entry_link])) {
             $entry_doc = $this->entry_webpages[$entry_link];
         } else {
             $entry_page = new DOMDocument();
             @$entry_page->loadHTMLFile($entry_link);
             $entry_doc = new DOMXPath($entry_page);
-            $this->entry_webpages[$entry_link] = $entry_doc;
+            if ($this->use_webpage_caching) {
+                $this->entry_webpages[$entry_link] = $entry_doc;
+            }
         }
         $result = @($entry_doc->query($xpath));
         if ($result === false) {
@@ -471,6 +486,7 @@ class RSSEditor
         foreach ($this->xml->getElementsByTagName("item") as $feed_item) {
             try {
                 $categories = $this->xpathQuery($feed_item, $xpath);
+                sleep(mt_rand() / mt_getrandmax() * (MAX_DOWNLOAD_DELAY - MIN_DOWNLOAD_DELAY) + MIN_DOWNLOAD_DELAY);
             } catch (TagNotFoundException $exc) {
                 continue;
             }
@@ -497,6 +513,7 @@ class RSSEditor
         foreach ($this->xml->getElementsByTagName("item") as $feed_item) {
             try {
                 $paragraphs = $this->xpathQuery($feed_item, $xpath);
+                sleep(mt_rand() / mt_getrandmax() * (MAX_DOWNLOAD_DELAY - MIN_DOWNLOAD_DELAY) + MIN_DOWNLOAD_DELAY);
             } catch (TagNotFoundException $exc) {
                 continue;
             }
@@ -578,7 +595,13 @@ try {
         'extend_description',
         array('rename_from', 'rename_to'),
         array('replace_from', 'replace_to', 'replace_in'),
-        'replace_sens'
+        'replace_sens',
+    );
+
+    $downloading_parameters = array(
+        'add_category',
+        'replace_description',
+        'extend_description',
     );
 
     if (!isset($_GET['url'])) {
@@ -615,7 +638,9 @@ try {
                                            "OR replace_from and replace_to and replace_in OR addCategory");
     }
 
-    $feed = new RSSEditor($url, $context, isset($_GET['amp']), true, @$_GET['add_namespace']);
+    $feed = new RSSEditor($url, $context,
+                          isset($_GET['amp']), true, @$_GET['add_namespace'],
+                          USE_WEBPAGE_CACHING && count(array_intersect(array_keys($_GET), $downloading_parameters)) > 1);
 
     if (isset($_GET['remove'])) {
         $feed->removeTags($_GET['remove']);

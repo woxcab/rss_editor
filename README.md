@@ -1,4 +1,4 @@
-[English](#eng) | [Russian](#rus)
+[English](#eng) | [Русский](#rus)
 
 # <a name="eng"></a> Simple RSS Editor
 ## Required GET-parameter
@@ -21,6 +21,21 @@
 |11 | `replace_in`               | string or array of strings              | tag name                 | Tag which content will be replaced. If its value is `*` then replacement will be in **each** tag of feed (including `<pubDate>`, `<link>`, etc.).                                                                                                                                                                                                                                                                                                                                                                                 |
 |11 | `replace_sens`             | presence/absence                        | match case or not        | Case sensitivity. If `replace_sens` (or `replace_sens[i]`) is passed then replacement will be case sensitive else not.                                                                                                                                                                                                                                                                                                                                                                                                            |
 |12 | `add_category`             | string                                  | [XPath 1.0 expression](http://www.w3schools.com/xsl/xpath_intro.asp) | It extracts values from a webpage of each RSS item (webpage URL is extracted from a `<link>` if it exists, otherwise item is ignored) using XPath expression and add `<category>` elements (to the appropriate RSS item) for each extracted value. XPath-expression must extract the final text (array of texts) only                                                                                                                                                                 |
+
+## Script constants
+Several configuration constants are defined at the beginning of [index.php](index.php) script
+that can be modified:
+* `DEBUG` is whether to use debug mode (make some additional actions for debugging if it's enabled).
+  *Default value*: `false`.
+* `MIN_DOWNLOAD_DELAY` is the minimum delay in seconds between RSS-elements' web-pages fetching.
+  Every actual delay is a random value between minimum and maximum values.
+  *Default value*: `0.12` (seconds).
+* `MAX_DOWNLOAD_DELAY` is the maximum delay in seconds between RSS-elements' web-pages fetching.
+  Every actual downloading delay is a random value between minimum and maximum values.
+  *Default value*: `0.94` (seconds).
+* `USE_WEBPAGE_CACHING` is whether to cache downloaded web-pages to reuse if it's necessary.
+  *Default value*: `true`.
+
 
 ## Examples
 * Replacing `&amp;` with `&` in the tags content,
@@ -66,6 +81,20 @@
 |12 | `add_category`             | строка                                  | [XPath-выражение 1.0](http://www.w3schools.com/xsl/xpath_intro.asp) | добавление каждому RSS-элементу категорий `<category>`, содержимое которых определяется XPath-выражением (XPath 1.0), извлекающее список чего-либо со страницы этого RSS-элемента (адрес берётся из тега `link`, если он есть), впоследствии преобразуемое в список строк. XPath-выражение должно извлекать сразу нужную информацию — значение содержимого или атрибута тега |
 
 Пример работы параметра `split`: подано значение `split=tag`, поэтому было `<tag>КрепостьЧПЗдоровьеНебо</tag>`, стало `<tag>крепость</tag><tag>чп</tag><tag>здоровье</tag><tag>небо</tag>`
+
+## Константы скрипта
+В начале скрипта [index.php](index.php) определены несколько конфигурационных констант,
+которые можно менять на свое усмотрение:
+* `DEBUG` — использовать или нет режим отладки (по факту режим отладки лишь делает некоторые дополнительные действия).
+  *Значение по умолчанию*: `false`.
+* `MIN_DOWNLOAD_DELAY` — минимальная задержка в секундах между загрузками веб-страниц RSS-элементов.
+  Величина задержки между загрузками веб-страниц представляет собой случайное значение между минимальным и максимальным значениями.
+  *Значение по умолчанию*: `0.12` (секунд).
+* `MAX_DOWNLOAD_DELAY` — максимальная задержка в секундах между загрузками веб-страниц RSS-элементов.
+  Величина задержки между загрузками веб-страниц представляет собой случайное значение между минимальным и максимальным значениями.
+  *Значение по умолчанию*: `0.94` (секунд).
+* `USE_WEBPAGE_CACHING` — кэшировать или нет загруженные веб-страницы для повторного использования в случае необходимости.
+  *Значение по умолчнию*: `true`.
 
 ## Примеры использования
 * В RSS-ленте http://milknews.ru/index/novosti-moloko.rss
