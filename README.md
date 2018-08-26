@@ -51,10 +51,10 @@ that can be modified:
   ```
 
 * Replacing description of each news with content of news web-page,
-  that matches XPath expression `//div[@class='article_introtext']|//div[@class='article_fulltext']/p`
+  that matches XPath expression `//div[@class='m-block__text-wrapper']/p`
   in the RSS feed http://www.fontanka.ru/fontanka.rss
   ```
-  index.php?url=http%3A%2F%2Fwww.fontanka.ru%2Ffontanka.rss&replace_description=%2F%2Fdiv%5B%40class%3D'article_introtext'%5D%7C%2F%2Fdiv%5B%40class%3D'article_fulltext'%5D%2Fp
+  index.php?url=http%3A%2F%2Fwww.fontanka.ru%2Ffontanka.rss&replace_description=%2F%2Fdiv%5B%40class%3D%27m-block__text-wrapper%27%5D%2Fp
   ```
 
 # <a name="rus"></a> Простенький редактор RSS-ленты
@@ -113,7 +113,7 @@ that can be modified:
 * В RSS-ленте http://www.fontanka.ru/fontanka.rss
   замена описания новостей на то,
   что содержится на веб-странице новости, соответствующее XPath-выражению
-  `//div[@class='article_introtext']|//div[@class='article_fulltext']/p`
+  `//div[@class='m-block__text-wrapper']/p`
   ```
-  index.php?url=http%3A%2F%2Fwww.fontanka.ru%2Ffontanka.rss&replace_description=%2F%2Fdiv%5B%40class%3D'article_introtext'%5D%7C%2F%2Fdiv%5B%40class%3D'article_fulltext'%5D%2Fp
+  index.php?url=http%3A%2F%2Fwww.fontanka.ru%2Ffontanka.rss&replace_description=%2F%2Fdiv%5B%40class%3D%27m-block__text-wrapper%27%5D%2Fp
   ```
