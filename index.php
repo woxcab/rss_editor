@@ -261,7 +261,7 @@ class RSSEditor
         if (defined('DEBUG') && DEBUG) {
             file_put_contents('last_raw_rss.xml', join(PHP_EOL, $http_response_header) . PHP_EOL . $this->plainText);
         }
-        if (!isset($http_response_header) || $http_response_header[0] != "HTTP/1.1 200 OK") {
+        if (!isset($http_response_header) || !preg_match('@HTTP/\d+.\d+ 200 OK@', $http_response_header[0])) {
             if (isset($http_response_header)) {
                 $status = ": {$http_response_header[0]}";
             } else {
