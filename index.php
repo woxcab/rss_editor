@@ -440,6 +440,61 @@ class RSSEditor
                 range(0, count($replaceFrom)-1)));
     }
 
+    public function filter($include=array(), $exclude=array()) {
+        $include = wrapInArray($include);
+        $exclude = wrapInArray($exclude);
+        $items = iterator_to_array($this->xml->getElementsByTagName("item"));
+        foreach ($items as $feed_item) {
+            $title = $feed_item->getElementsByTagName('title');
+            $title = ($title->length > 0) ? $title->item(0)->nodeValue : '';
+            $description = $feed_item->getElementsByTagName('description');
+            $description = ($description->length > 0) ? $description->item(0)->nodeValue : '';
+            $categories = $feed_item->getElementsByTagName('category');
+            if ($categories->length > 0) {
+                $categories = join(' ', array_map(function ($cat) {return $cat->nodeValue;},
+                                                  iterator_to_array($categories)));
+            } else {
+                $categories = '';
+            }
+            $leave = true;
+            if ($include) {
+                $leave = false;
+                foreach ($include as $user_regex) {
+                    $regex = '/' . preg_replace("/(?<!\\\)\//u", "\\/", $user_regex) . '/iu';
+                    $title_matched = preg_match($regex, $title);
+                    $description_matched = preg_match($regex, $description);
+                    $categories_matched = preg_match($regex, $categories);
+                    if ($title_matched === false || $description_matched === false || $categories_matched === false) {
+                        throw new InvalidArgumentException("Invalid regular expression: {$user_regex}");
+                    }
+                    if ($title_matched || $description_matched || $categories_matched) {
+                        $leave = true;
+                        break;
+                    }
+                }
+            }
+            if ($exclude && $leave) {
+                foreach ($exclude as $user_regex) {
+                    $regex = '/' . preg_replace("/(?<!\\\)\//u", "\\/", $user_regex) . '/iu';
+                    $title_matched = preg_match($regex, $title);
+                    $description_matched = preg_match($regex, $description);
+                    $categories_matched = preg_match($regex, $categories);
+                    if ($title_matched === false || $description_matched === false || $categories_matched === false) {
+                        throw new InvalidArgumentException("Invalid regular expression: {$user_regex}");
+                    }
+                    if ($title_matched || $description_matched || $categories_matched) {
+                        $leave = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!$leave) {
+                $feed_item->parentNode->removeChild($feed_item);
+            }
+        }
+    }
+
     /**
      * Add categories to each feed item from its web-page ('link' element) using XPath expression
      * that extract list of category names from web-page.
@@ -596,6 +651,8 @@ try {
         array('rename_from', 'rename_to'),
         array('replace_from', 'replace_to', 'replace_in'),
         'replace_sens',
+        'include',
+        'exclude'
     );
 
     $downloading_parameters = array(
@@ -669,7 +726,6 @@ try {
         $feed->cdataTags($_GET['cdata']);
     }
 
-
     if (isset($_GET['replace_from']) && isset($_GET['replace_to']) && isset($_GET['replace_in'])) {
         $feed->replaceContent($_GET['replace_from'], $_GET['replace_to'],
                               $_GET['replace_in'], isset($_GET['replace_sens']));
@@ -677,6 +733,12 @@ try {
 
     if (isset($_GET['add_category'])) {
         $feed->addCategory($_GET['add_category']);
+    }
+
+    if (isset($_GET['include']) || isset($_GET['exclude'])) {
+        $include = isset($_GET['include']) ? $_GET['include'] : array();
+        $exclude= isset($_GET['exclude']) ? $_GET['exclude'] : array();
+        $feed->filter($include, $exclude);
     }
 
     echo $feed->getXMLAsText();
